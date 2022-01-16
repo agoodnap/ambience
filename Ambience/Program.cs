@@ -1,11 +1,12 @@
 ﻿using Ambience.Commands;
+using Ambience.Services;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
-using DSharpPlus.Entities;
 using DSharpPlus.Lavalink;
 using DSharpPlus.Net;
 using DSharpPlus.VoiceNext;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 internal class Program
 {
@@ -21,10 +22,11 @@ internal class Program
         {
             _cts = new CancellationTokenSource();
 
-            Console.WriteLine("[info] Loading config file..");
+            Console.WriteLine("[info] Loading configurations..");
             _config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("config.json", optional: false, reloadOnChange: true)
+                .AddJsonFile("ambiences.json", optional: false, reloadOnChange: true)
                 .Build();
 
             Console.WriteLine("[info] Creating discord client..");
@@ -49,9 +51,30 @@ internal class Program
 
             var voiceNext = _discord.UseVoiceNext();
             var lavalink = _discord.UseLavalink();
+
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddOptions<AmbienceServiceOptions>();
+
+            var services = serviceCollection
+                .AddSingleton<AmbienceService>()
+                .Configure<AmbienceServiceOptions>(options =>
+                {
+                    var children = _config.GetSection("ambiences").GetChildren();
+                    var ambiences = new List<Ambience.Domain.Ambience>();
+                    foreach (var child in children)
+                    {
+                        var name = child.GetValue<string>("Name");
+                        var links = child.GetSection("Links").GetChildren().Select(x => x.Value);
+                        ambiences.Add(new Ambience.Domain.Ambience(name, links.ToArray()));
+                    }
+                    options.AmbienceList = ambiences.ToArray();
+                })
+                .BuildServiceProvider();
+
             var commands = _discord.UseCommandsNext(new CommandsNextConfiguration
             {
-                StringPrefixes = new[] { _config.GetValue<string>("discord:prefix") }
+                StringPrefixes = new[] { _config.GetValue<string>("discord:prefix") },
+                Services = services
             });
 
             commands.RegisterCommands<MusicCommands>();
