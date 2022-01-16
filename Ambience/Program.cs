@@ -66,7 +66,11 @@ internal class Program
         }
         catch (Exception ex)
         {
+#if Debug
             Console.Error.WriteLine(ex.ToString());
+#else
+            Console.Error.WriteLine(ex.Message);
+#endif
         }
     }
 }
