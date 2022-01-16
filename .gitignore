@@ -407,3 +407,6 @@ FodyWeavers.xsd
 
 # Discord Auth
 Ambience/config.json
+
+# Copy To Pi Script
+Ambience/copytopi.bat
